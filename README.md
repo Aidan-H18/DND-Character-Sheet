@@ -30,7 +30,8 @@ option.
 - **Three ability score methods**: standard array, point buy (27 points,
   PHB costs), or manual/rolled entry.
 - **9 core races** (with subraces for Elf, Dwarf, Halfling, Gnome) and
-  **12 classes**, each with one starter subclass — more can be added easily
+  **13 classes** — the 12 PHB classes plus the Artificer — each with one
+  starter subclass. More races/classes/subclasses can be added easily
   (see "Adding content" below).
 - **A full character sheet**: ability scores & modifiers, saving throws,
   all 18 skills, HP/AC/initiative/speed/passive perception, spell slots and
@@ -78,8 +79,11 @@ Each class needs `hitDie`, `savingThrows`, `skillChoices`, and a `features`
 array of `{ level, name, description }`. To add another subclass option,
 push an object with the same `{ level, name, description }` shape onto that
 class's `subclasses` array — the wizard and level-up flow will pick it up
-automatically. The included subclasses are all from the free 5e SRD; you
-can add the rest of a class's PHB subclasses the same way.
+automatically. The 12 PHB classes' included subclasses are all from the
+free 5e SRD; the Artificer isn't SRD content (it's from Tasha's Cauldron
+of Everything), so its entry is an original paraphrase of the class's
+mechanics rather than transcribed text — keep that in mind if you add
+more non-SRD classes or subclasses this way.
 
 **Add a background** — push onto `BACKGROUNDS` in `js/data/backgrounds.js`.
 
@@ -88,9 +92,10 @@ can add the rest of a class's PHB subclasses the same way.
 This is a solid v1, not the full PHB. Things deliberately simplified for
 now, in rough priority order for a "v2":
 
-1. **One subclass per class.** Only the SRD-licensed subclass is included
-   for each of the 12 classes. Adding more (per above) is straightforward
-   — it's a matter of transcribing PHB text, not code changes.
+1. **One subclass per class.** Only one starter subclass is included per
+   class (SRD-licensed for the 12 PHB classes; an original paraphrase for
+   the Artificer). Adding more (per above) is straightforward — mostly a
+   matter of transcribing text, not code changes.
 2. **Uniform ASI levels (4/8/12/16/19)** for every class, rather than the
    couple of PHB exceptions (Fighter's extra ASI at 6 & 14, Rogue's at 10).
 3. **No feats** as an alternative to an Ability Score Improvement.

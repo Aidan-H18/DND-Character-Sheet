@@ -104,6 +104,16 @@ const RULES = {
     null,
     [1, 1], [2, 1], [2, 2], [2, 2], [2, 3], [2, 3], [2, 4], [2, 4], [2, 5], [2, 5],
     [3, 5], [3, 5], [3, 5], [3, 5], [3, 5], [3, 5], [4, 5], [4, 5], [4, 5], [4, 5]
+  ],
+
+  // Artificer: a half-caster like Paladin/Ranger, but unusually starts
+  // casting at level 1 instead of level 2 — every pair of levels shares a
+  // slot count (1&2, 3&4, 5&6, ...) rather than the usual single-level offset.
+  spellSlotsArtificer: [
+    null,
+    [2], [2], [3], [3], [4, 2], [4, 2], [4, 3], [4, 3], [4, 3, 2], [4, 3, 2],
+    [4, 3, 3], [4, 3, 3], [4, 3, 3, 1], [4, 3, 3, 1], [4, 3, 3, 2], [4, 3, 3, 2],
+    [4, 3, 3, 3, 1], [4, 3, 3, 3, 1], [4, 3, 3, 3, 2], [4, 3, 3, 3, 2]
   ]
 };
 

@@ -173,6 +173,7 @@ const CharacterModel = (() => {
     if (cls.spellcasting.slotType === 'full') table = RULES.spellSlotsFull;
     else if (cls.spellcasting.slotType === 'half') table = RULES.spellSlotsHalf;
     else if (cls.spellcasting.slotType === 'pact') table = RULES.spellSlotsPact;
+    else if (cls.spellcasting.slotType === 'artificer') table = RULES.spellSlotsArtificer;
     if (!table) return null;
     return table[level] || [];
   }

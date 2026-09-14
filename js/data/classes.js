@@ -12,6 +12,51 @@
 
 const CLASSES = [
   {
+    // Unlike the other 12 classes, Artificer isn't part of the free 5e
+    // SRD (it comes from Tasha's Cauldron of Everything / Eberron), so
+    // this entry is an original paraphrase of the class's mechanics
+    // rather than SRD text. See README "Adding content" for more.
+    id: 'artificer',
+    name: 'Artificer',
+    hitDie: 8,
+    primaryAbility: ['int'],
+    savingThrows: ['con', 'int'],
+    armorProficiencies: ['Light armor', 'Medium armor', 'Shields'],
+    weaponProficiencies: ['Simple weapons'],
+    toolProficiencies: ['Thieves’ tools', 'Tinker’s tools', 'One type of artisan’s tools of your choice'],
+    skillChoices: { count: 2, options: ['arcana', 'history', 'investigation', 'medicine', 'nature', 'perception', 'sleightOfHand'] },
+    startingEquipment: ['A light crossbow and 20 bolts, or a simple weapon', 'Studded leather armor', 'Thieves’ tools and a dungeoneer’s pack', 'Two daggers and a set of tinker’s tools'],
+    spellcasting: { ability: 'int', slotType: 'artificer', knownStyle: 'prepared' },
+    subclassLevel: 3,
+    subclassFeatureName: 'Artificer Specialist',
+    features: [
+      { level: 1, name: 'Magical Tinkering', description: 'You learn to invest a spark of magic into a tiny object, granting it a minor magical property such as a light, a recorded message, a sensory effect, or a faint scent, for as long as you touch it.' },
+      { level: 1, name: 'Spellcasting', description: 'You can cast artificer spells using Intelligence as your spellcasting ability, treating them as formulas channeled through tools rather than innate magic.' },
+      { level: 2, name: 'Infuse Item', description: 'You learn a number of magical infusions and can imbue mundane items with them, turning ordinary gear into quasi-magical tools and equipment that persist until you replace them.' },
+      { level: 3, name: 'The Right Tool for the Job', description: 'You can magically create a set of artisan’s tools in unoccupied space you can see, usable for one hour before disappearing.' },
+      { level: 6, name: 'Tool Expertise', description: 'Your proficiency bonus is doubled for any ability check you make that uses your proficiency with a tool.' },
+      { level: 7, name: 'Flash of Genius', description: 'When you or a creature you can see within 30 feet makes an ability check or saving throw, you can use your reaction to add your Intelligence modifier to the roll.' },
+      { level: 10, name: 'Magic Item Adept', description: 'You gain the ability to attune to up to four magic items at once, and you craft and modify magic items more efficiently.' },
+      { level: 11, name: 'Spell-Storing Item', description: 'You can store a spell in an object during a short rest, letting another creature unleash it later by using the item.' },
+      { level: 14, name: 'Magic Item Savant', description: 'You can attune to up to five magic items at once, and you ignore all class, race, and level requirements on attuning to or using a magic item.' }
+    ],
+    subclasses: [
+      {
+        id: 'alchemist',
+        name: 'Alchemist',
+        description: 'Alchemists are masters of chemical magic, using their creations to give life and to leech it away, brewing elixirs of transformative power.',
+        features: [
+          { level: 3, name: 'Tool Proficiency', description: 'You gain proficiency with alchemist’s supplies, and any check you make with them can use Intelligence instead of the normal ability.' },
+          { level: 3, name: 'Alchemist Spells', description: 'You always have certain healing- and transmutation-themed spells prepared, and they don’t count against the number of spells you can prepare.' },
+          { level: 3, name: 'Experimental Elixir', description: 'You can magically produce a random (or, at higher levels, chosen) potion-like elixir during a short rest, granting effects such as healing, resistance, or a boost to an ability.' },
+          { level: 5, name: 'Alchemical Savant', description: 'When you cast a spell that uses alchemist’s supplies as a spellcasting focus, you add your Intelligence modifier to one damage or healing roll of that spell.' },
+          { level: 9, name: 'Restorative Reagents', description: 'Your experimental elixirs can also grant temporary hit points, and creatures you heal with a spell regain a small bonus of extra hit points.' },
+          { level: 15, name: 'Chemical Mastery', description: 'You gain resistance to acid and poison damage, immunity to being poisoned, and can craft your experimental elixirs so anyone can safely drink two per rest.' }
+        ]
+      }
+    ]
+  },
+  {
     id: 'barbarian',
     name: 'Barbarian',
     hitDie: 12,
