@@ -8,7 +8,8 @@ const App = (() => {
   const views = {
     home: document.getElementById('view-home'),
     wizard: document.getElementById('view-wizard'),
-    sheet: document.getElementById('view-sheet')
+    sheet: document.getElementById('view-sheet'),
+    contentBuilder: document.getElementById('view-content-builder')
   };
 
   function setView(name) {
@@ -42,6 +43,12 @@ const App = (() => {
       onBack: showHome,
       onChange: (updated) => Storage.upsert(updated)
     });
+  }
+
+  function showContentBuilder() {
+    setView('contentBuilder');
+    const root = document.getElementById('content-builder-root');
+    ContentBuilder.render(root);
   }
 
   function renderHome() {
@@ -133,6 +140,7 @@ const App = (() => {
 
     document.getElementById('brand-link').addEventListener('click', (e) => { e.preventDefault(); showHome(); });
     document.getElementById('nav-home').addEventListener('click', showHome);
+    document.getElementById('nav-content-builder').addEventListener('click', showContentBuilder);
     document.getElementById('btn-new-character').addEventListener('click', showWizard);
     document.getElementById('import-file-input').addEventListener('change', (e) => {
       const file = e.target.files[0];
@@ -143,7 +151,7 @@ const App = (() => {
     showHome();
   }
 
-  return { init, showHome, showWizard, showSheet };
+  return { init, showHome, showWizard, showSheet, showContentBuilder };
 })();
 
 document.addEventListener('DOMContentLoaded', App.init);
