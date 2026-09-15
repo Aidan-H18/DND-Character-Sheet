@@ -43,8 +43,9 @@ option.
 - **Multiple characters**, with export/import to JSON (for backups or moving
   between browsers) and quick duplication.
 - **Content Builder**: an in-app form (under "🛠 Content Builder" in the
-  header) for adding new races or subclasses without hand-editing the data
-  files — see "Adding content" below.
+  header) for adding *or editing* races and subclasses — new Otherworldly
+  Patrons, Divine Domains, Sacred Oaths, etc. — without hand-editing the
+  data files. See "Adding content" below.
 
 ## Project structure
 
@@ -75,16 +76,23 @@ The game data is deliberately kept separate from the logic that uses it, so
 growing the game's content doesn't require touching the UI code.
 
 **Using the Content Builder (recommended)** — click "🛠 Content Builder" in
-the header and fill in the form for a race or a subclass. "Save" writes the
-new entry straight into `js/data/races.js` / `js/data/classes.js` (your
-browser will prompt you to pick the file — this uses the File System Access
-API, supported in Chromium-based browsers like Chrome/Edge). In browsers
-without that API (Firefox, Safari), it instead downloads an updated copy of
-the file for you to replace the original with. Either way, there's also a
-"Copy JS Snippet" button if you'd rather paste the generated object in by
-hand. The tool covers the common fields (ability bonuses, traits, subraces,
-subclass features); anything more exotic (like Half-Elf's `abilityChoiceBonus`)
-still needs a manual edit afterward.
+the header. "Add Race" / "Add Subclass" create a new entry; "Edit Race" /
+"Edit Subclass" pick an existing one from a dropdown, pre-fill the same
+form with its current data, and update it in place instead of appending —
+use this to add a second Otherworldly Patron for the Warlock, a new Divine
+Domain for the Cleric, another Sacred Oath for the Paladin, or just fix a
+typo in something already there. "Save" writes straight into
+`js/data/races.js` / `js/data/classes.js` (your browser will prompt you to
+pick the file — this uses the File System Access API, supported in
+Chromium-based browsers like Chrome/Edge). In browsers without that API
+(Firefox, Safari), it instead downloads an updated copy of the file for you
+to replace the original with. Either way, there's also a "Copy JS Snippet"
+button if you'd rather paste the generated object in by hand. The tool
+covers the common fields (ability bonuses, traits, subraces, subclass
+features); anything more exotic (like Half-Elf's `abilityChoiceBonus`)
+still needs a manual edit afterward. Editing a subclass keeps it on its
+original class — to move one to a different class, edit it out by hand and
+re-add it under "Add Subclass" instead.
 
 **Add a race by hand** — push an object onto the `RACES` array in
 `js/data/races.js`. Give it `abilityBonuses`, `speed`, `size`, and a

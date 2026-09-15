@@ -97,6 +97,16 @@ const ContentBuilder = (() => {
     return -1;
   }
 
+  /** Locate an array's `[ ... ]` span from the `const NAME = [` declaration that opens it. */
+  function getArrayBounds(text, marker) {
+    const markerIdx = text.indexOf(marker);
+    if (markerIdx === -1) return null;
+    const openIdx = markerIdx + marker.length - 1;
+    const closeIdx = findMatchingBracket(text, openIdx);
+    if (closeIdx === -1) return null;
+    return { openIdx, closeIdx };
+  }
+
   /** Find the top-level array-item object (one level below `arrOpen`) that contains `targetIdx`. */
   function findEnclosingObject(text, arrOpen, targetIdx) {
     let depth = 0;
@@ -140,38 +150,65 @@ const ContentBuilder = (() => {
     return prefix + (isEmpty ? '' : ',') + '\n' + entryText + '\n' + bracketIndent + suffix;
   }
 
-  function insertRaceIntoText(text, race) {
-    const marker = 'const RACES = [';
-    const markerIdx = text.indexOf(marker);
-    if (markerIdx === -1) return null;
-    const openIdx = markerIdx + marker.length - 1;
-    const closeIdx = findMatchingBracket(text, openIdx);
-    if (closeIdx === -1) return null;
-    return insertIntoBracketedList(text, openIdx, closeIdx, race);
-  }
-
-  function insertSubclassIntoText(text, classId, subclass) {
-    const marker = 'const CLASSES = [';
-    const markerIdx = text.indexOf(marker);
-    if (markerIdx === -1) return null;
-    const arrOpen = markerIdx + marker.length - 1;
-    const arrClose = findMatchingBracket(text, arrOpen);
-    if (arrClose === -1) return null;
-
+  /** Find the `subclasses: [ ... ]` span that belongs to the class with id `classId`. */
+  function findClassSubclassesBounds(text, classId) {
+    const bounds = getArrayBounds(text, 'const CLASSES = [');
+    if (!bounds) return null;
     const idMarker = `id: '${classId}'`;
-    const idIdx = text.indexOf(idMarker, arrOpen);
-    if (idIdx === -1 || idIdx > arrClose) return null;
-
-    const objRange = findEnclosingObject(text, arrOpen, idIdx);
+    const idIdx = text.indexOf(idMarker, bounds.openIdx);
+    if (idIdx === -1 || idIdx > bounds.closeIdx) return null;
+    const objRange = findEnclosingObject(text, bounds.openIdx, idIdx);
     if (!objRange) return null;
-
     const subKeyIdx = text.indexOf('subclasses:', objRange.start);
     if (subKeyIdx === -1 || subKeyIdx > objRange.end) return null;
     const subOpenIdx = text.indexOf('[', subKeyIdx);
     const subCloseIdx = findMatchingBracket(text, subOpenIdx);
     if (subCloseIdx === -1) return null;
+    return { openIdx: subOpenIdx, closeIdx: subCloseIdx };
+  }
 
-    return insertIntoBracketedList(text, subOpenIdx, subCloseIdx, subclass);
+  function insertRaceIntoText(text, race) {
+    const bounds = getArrayBounds(text, 'const RACES = [');
+    if (!bounds) return null;
+    return insertIntoBracketedList(text, bounds.openIdx, bounds.closeIdx, race);
+  }
+
+  function insertSubclassIntoText(text, classId, subclass) {
+    const subBounds = findClassSubclassesBounds(text, classId);
+    if (!subBounds) return null;
+    return insertIntoBracketedList(text, subBounds.openIdx, subBounds.closeIdx, subclass);
+  }
+
+  /** Find the `{ ... }` span of the array item whose `id` field matches `targetId`, within [openIdx, closeIdx]. */
+  function findObjectRangeById(text, openIdx, closeIdx, targetId) {
+    const idMarker = `id: '${targetId}'`;
+    const idIdx = text.indexOf(idMarker, openIdx);
+    if (idIdx === -1 || idIdx > closeIdx) return null;
+    return findEnclosingObject(text, openIdx, idIdx);
+  }
+
+  /** Replace the object spanning [start, end] with a freshly serialized `obj`, matching its existing indentation. */
+  function replaceObjectInText(text, start, end, obj) {
+    const lineStart = text.lastIndexOf('\n', start) + 1;
+    const indent = text.slice(lineStart, start);
+    const itemDepth = Math.round(indent.length / 2);
+    return text.slice(0, start) + toJSLiteral(obj, itemDepth) + text.slice(end + 1);
+  }
+
+  function replaceRaceInText(text, originalId, race) {
+    const bounds = getArrayBounds(text, 'const RACES = [');
+    if (!bounds) return null;
+    const range = findObjectRangeById(text, bounds.openIdx, bounds.closeIdx, originalId);
+    if (!range) return null;
+    return replaceObjectInText(text, range.start, range.end, race);
+  }
+
+  function replaceSubclassInText(text, classId, originalId, subclass) {
+    const subBounds = findClassSubclassesBounds(text, classId);
+    if (!subBounds) return null;
+    const range = findObjectRangeById(text, subBounds.openIdx, subBounds.closeIdx, originalId);
+    if (!range) return null;
+    return replaceObjectInText(text, range.start, range.end, subclass);
   }
 
   function downloadText(text, filename) {
@@ -247,6 +284,63 @@ const ContentBuilder = (() => {
     return { ok: true, mode: 'download' };
   }
 
+  async function saveRaceEditToFile(originalId, race) {
+    const filename = 'races.js';
+    const applyInMemory = () => {
+      const idx = RACES.findIndex(r => r.id === originalId);
+      if (idx !== -1) RACES[idx] = race;
+    };
+    if ('showOpenFilePicker' in window) {
+      let handle;
+      try { handle = await pickFile(filename); }
+      catch (err) { if (err.name === 'AbortError') return { ok: false }; throw err; }
+      const text = await (await handle.getFile()).text();
+      const updated = replaceRaceInText(text, originalId, race);
+      if (!updated) throw new Error('Could not find that race in the file — make sure you selected races.js.');
+      const writable = await handle.createWritable();
+      await writable.write(updated);
+      await writable.close();
+      applyInMemory();
+      return { ok: true, mode: 'file' };
+    }
+    const res = await fetch('js/data/races.js', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Could not fetch the current races.js.');
+    const updated = replaceRaceInText(await res.text(), originalId, race);
+    if (!updated) throw new Error('Could not find that race in races.js.');
+    downloadText(updated, filename);
+    applyInMemory();
+    return { ok: true, mode: 'download' };
+  }
+
+  async function saveSubclassEditToFile(classId, originalId, subclass) {
+    const filename = 'classes.js';
+    const applyInMemory = () => {
+      const cls = CLASSES.find(c => c.id === classId);
+      const idx = (cls.subclasses || []).findIndex(s => s.id === originalId);
+      if (idx !== -1) cls.subclasses[idx] = subclass;
+    };
+    if ('showOpenFilePicker' in window) {
+      let handle;
+      try { handle = await pickFile(filename); }
+      catch (err) { if (err.name === 'AbortError') return { ok: false }; throw err; }
+      const text = await (await handle.getFile()).text();
+      const updated = replaceSubclassInText(text, classId, originalId, subclass);
+      if (!updated) throw new Error('Could not find that subclass in the file — make sure you selected classes.js.');
+      const writable = await handle.createWritable();
+      await writable.write(updated);
+      await writable.close();
+      applyInMemory();
+      return { ok: true, mode: 'file' };
+    }
+    const res = await fetch('js/data/classes.js', { cache: 'no-store' });
+    if (!res.ok) throw new Error('Could not fetch the current classes.js.');
+    const updated = replaceSubclassInText(await res.text(), classId, originalId, subclass);
+    if (!updated) throw new Error('Could not find that subclass in classes.js.');
+    downloadText(updated, filename);
+    applyInMemory();
+    return { ok: true, mode: 'download' };
+  }
+
   // ---------- small form-building helpers ----------
 
   function fieldWrap(label, node) {
@@ -268,6 +362,13 @@ const ContentBuilder = (() => {
       grid.appendChild(fieldWrap(RULES.abilityLabels[ab], inp));
     });
     return grid;
+  }
+
+  /** A { str, dex, con, int, wis, cha } object with every key present, for form binding. */
+  function cloneAbilityBonuses(source) {
+    const out = { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 };
+    Object.assign(out, source || {});
+    return out;
   }
 
   /** Generic add/remove list editor over an array of plain objects. */
@@ -318,11 +419,11 @@ const ContentBuilder = (() => {
 
   // ---------- Race form ----------
 
-  function buildRaceObject(state) {
+  function buildRaceObject(state, editingId) {
     if (!state.name.trim()) throw new Error('Race name is required.');
     const id = (state.id || slugify(state.name)).trim();
     if (!id) throw new Error('Race ID is required.');
-    if (RACES.some(r => r.id === id)) throw new Error(`A race with id "${id}" already exists.`);
+    if (id !== editingId && RACES.some(r => r.id === id)) throw new Error(`A race with id "${id}" already exists.`);
     const abilityBonuses = {};
     Object.keys(state.abilityBonuses).forEach(k => { if (state.abilityBonuses[k]) abilityBonuses[k] = state.abilityBonuses[k]; });
     const traits = state.traits.filter(t => t.name.trim() && t.description.trim())
@@ -355,11 +456,32 @@ const ContentBuilder = (() => {
     return race;
   }
 
-  function buildRaceForm() {
-    const state = {
+  /** Deep-clone an existing race into the form's editable state shape. */
+  function raceToState(race) {
+    return {
+      name: race.name, id: race.id, idEdited: true,
+      size: race.size, speed: race.speed,
+      abilityBonuses: cloneAbilityBonuses(race.abilityBonuses),
+      languages: (race.languages || []).join(', '),
+      description: race.description,
+      traits: (race.traits || []).map(t => ({ ...t })),
+      hasSubraces: !!(race.subraces && race.subraces.length),
+      subraces: (race.subraces || []).map(s => ({
+        name: s.name, id: s.id,
+        abilityBonuses: cloneAbilityBonuses(s.abilityBonuses),
+        speedOverride: s.speedOverride,
+        traits: (s.traits || []).map(t => ({ ...t }))
+      }))
+    };
+  }
+
+  /** Builds the Add-a-Race form, or an Edit form pre-filled from `existingRace` when given. */
+  function buildRaceForm(existingRace) {
+    const editingId = existingRace ? existingRace.id : null;
+    const state = existingRace ? raceToState(existingRace) : {
       name: '', id: '', idEdited: false,
       size: 'Medium', speed: 30,
-      abilityBonuses: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 },
+      abilityBonuses: cloneAbilityBonuses(),
       languages: 'Common', description: '',
       traits: [{ name: '', description: '' }],
       hasSubraces: false, subraces: []
@@ -374,9 +496,9 @@ const ContentBuilder = (() => {
     const descInput = mkInput('textarea', state.description, v => state.description = v);
     const traitsEditor = listEditor(state.traits, traitFields, () => ({ name: '', description: '' }), '+ Add Trait');
 
-    const subracesContainer = el('div', { hidden: true }, [
+    const subracesContainer = el('div', { hidden: !state.hasSubraces }, [
       listEditor(state.subraces, subraceFields, () => ({
-        name: '', id: '', abilityBonuses: { str: 0, dex: 0, con: 0, int: 0, wis: 0, cha: 0 }, traits: []
+        name: '', id: '', abilityBonuses: cloneAbilityBonuses(), traits: []
       }), '+ Add Subrace')
     ]);
     const subracesToggle = el('input', {
@@ -385,11 +507,17 @@ const ContentBuilder = (() => {
     });
 
     const status = el('div', { class: 'hint' }, '');
-    const saveBtn = el('button', { class: 'btn btn--primary', onclick: () => handleSaveRace(state, status) }, 'Save Race');
-    const copyBtn = el('button', { class: 'btn btn--ghost', onclick: () => copySnippet(buildRaceObject, state, status, 'RACES array in js/data/races.js') }, 'Copy JS Snippet');
+    const saveBtn = el('button', {
+      class: 'btn btn--primary',
+      onclick: () => editingId ? handleSaveRaceEdit(editingId, state, status) : handleSaveRace(state, status)
+    }, editingId ? 'Save Changes' : 'Save Race');
+    const copyBtn = el('button', {
+      class: 'btn btn--ghost',
+      onclick: () => copySnippet(s => buildRaceObject(s, editingId), state, status, 'RACES array in js/data/races.js')
+    }, 'Copy JS Snippet');
 
     return el('div', { class: 'builder-form' }, [
-      el('h2', {}, 'Add a Race'),
+      el('h2', {}, editingId ? `Edit Race: ${existingRace.name}` : 'Add a Race'),
       fieldWrap('Name', nameInput),
       fieldWrap('ID (used internally, must be unique)', idInput),
       fieldWrap('Size', sizeSelect),
@@ -422,15 +550,32 @@ const ContentBuilder = (() => {
     }
   }
 
+  async function handleSaveRaceEdit(editingId, state, status) {
+    let race;
+    try { race = buildRaceObject(state, editingId); } catch (err) { status.textContent = err.message; return; }
+    status.textContent = 'Saving…';
+    try {
+      const result = await saveRaceEditToFile(editingId, race);
+      if (result.ok === false) { status.textContent = 'Cancelled.'; return; }
+      status.textContent = result.mode === 'file'
+        ? `Saved! ${race.name} was updated in js/data/races.js.`
+        : `Downloaded an updated races.js with ${race.name}’s changes — replace js/data/races.js with this file.`;
+      showToast(`${race.name} updated.`);
+    } catch (err) {
+      console.error(err);
+      status.textContent = `Could not update the file automatically: ${err.message} — use "Copy JS Snippet" and replace the entry by hand instead.`;
+    }
+  }
+
   // ---------- Subclass form ----------
 
-  function buildSubclassObject(state) {
+  function buildSubclassObject(state, editingId) {
     const cls = CLASSES.find(c => c.id === state.classId);
     if (!cls) throw new Error('Pick a class.');
     if (!state.name.trim()) throw new Error('Subclass name is required.');
     const id = (state.id || slugify(state.name)).trim();
     if (!id) throw new Error('Subclass ID is required.');
-    if ((cls.subclasses || []).some(s => s.id === id)) throw new Error(`${cls.name} already has a subclass with id "${id}".`);
+    if (id !== editingId && (cls.subclasses || []).some(s => s.id === id)) throw new Error(`${cls.name} already has a subclass with id "${id}".`);
     if (!state.description.trim()) throw new Error('Description is required.');
     const features = state.features.filter(f => f.name.trim() && f.description.trim())
       .map(f => ({ level: parseInt(f.level, 10) || 1, name: f.name.trim(), description: f.description.trim() }));
@@ -438,8 +583,15 @@ const ContentBuilder = (() => {
     return { classId: cls.id, subclass: { id, name: state.name.trim(), description: state.description.trim(), features } };
   }
 
-  function buildSubclassForm() {
-    const state = { classId: CLASSES[0].id, name: '', id: '', idEdited: false, description: '', features: [{ level: 1, name: '', description: '' }] };
+  /** Builds the Add-a-Subclass form, or an Edit form locked to `lockedClassId` and
+   *  pre-filled from `existingSubclass` when given (renaming to a different class
+   *  isn't supported — remove and re-add under the new class for that). */
+  function buildSubclassForm(existingSubclass, lockedClassId) {
+    const editingId = existingSubclass ? existingSubclass.id : null;
+    const state = existingSubclass
+      ? { classId: lockedClassId, name: existingSubclass.name, id: existingSubclass.id, idEdited: true,
+          description: existingSubclass.description, features: (existingSubclass.features || []).map(f => ({ ...f })) }
+      : { classId: CLASSES[0].id, name: '', id: '', idEdited: false, description: '', features: [{ level: 1, name: '', description: '' }] };
 
     const existingBox = el('div', { class: 'detail-panel' });
     function renderExisting() {
@@ -449,9 +601,11 @@ const ContentBuilder = (() => {
       existingBox.appendChild(el('ul', {}, (cls.subclasses || []).map(s => el('li', {}, `${s.name} (id: ${s.id})`))));
     }
 
-    const classSelect = el('select', {
-      onchange: e => { state.classId = e.target.value; renderExisting(); }
-    }, CLASSES.map(c => el('option', { value: c.id, selected: c.id === state.classId }, c.name)));
+    const classField = editingId
+      ? el('p', {}, CharacterModel.findClass(lockedClassId).name)
+      : el('select', {
+          onchange: e => { state.classId = e.target.value; renderExisting(); }
+        }, CLASSES.map(c => el('option', { value: c.id, selected: c.id === state.classId }, c.name)));
     renderExisting();
 
     const idInput = mkInput('text', state.id, v => { state.id = v; state.idEdited = true; });
@@ -460,15 +614,19 @@ const ContentBuilder = (() => {
     const featuresEditor = listEditor(state.features, featureFields, () => ({ level: 1, name: '', description: '' }), '+ Add Feature');
 
     const status = el('div', { class: 'hint' }, '');
-    const saveBtn = el('button', { class: 'btn btn--primary', onclick: () => handleSaveSubclass(state, status) }, 'Save Subclass');
+    const saveBtn = el('button', {
+      class: 'btn btn--primary',
+      onclick: () => editingId ? handleSaveSubclassEdit(lockedClassId, editingId, state, status) : handleSaveSubclass(state, status)
+    }, editingId ? 'Save Changes' : 'Save Subclass');
     const copyBtn = el('button', {
       class: 'btn btn--ghost',
-      onclick: () => copySnippet(() => buildSubclassObject(state).subclass, state, status, `subclasses array for the chosen class in js/data/classes.js`)
+      onclick: () => copySnippet(s => buildSubclassObject(s, editingId).subclass, state, status, `subclasses array for the chosen class in js/data/classes.js`)
     }, 'Copy JS Snippet');
 
+    const cls = CharacterModel.findClass(state.classId);
     return el('div', { class: 'builder-form' }, [
-      el('h2', {}, 'Add a Subclass'),
-      fieldWrap('Class', classSelect),
+      el('h2', {}, editingId ? `Edit ${cls.subclassFeatureName || 'Subclass'}: ${existingSubclass.name}` : 'Add a Subclass'),
+      fieldWrap('Class', classField),
       existingBox,
       fieldWrap('Subclass Name', nameInput),
       fieldWrap('ID (used internally, must be unique)', idInput),
@@ -496,6 +654,23 @@ const ContentBuilder = (() => {
     }
   }
 
+  async function handleSaveSubclassEdit(classId, editingId, state, status) {
+    let built;
+    try { built = buildSubclassObject(state, editingId); } catch (err) { status.textContent = err.message; return; }
+    status.textContent = 'Saving…';
+    try {
+      const result = await saveSubclassEditToFile(classId, editingId, built.subclass);
+      if (result.ok === false) { status.textContent = 'Cancelled.'; return; }
+      status.textContent = result.mode === 'file'
+        ? `Saved! ${built.subclass.name} was updated in js/data/classes.js.`
+        : `Downloaded an updated classes.js with ${built.subclass.name}’s changes — replace js/data/classes.js with this file.`;
+      showToast(`${built.subclass.name} updated.`);
+    } catch (err) {
+      console.error(err);
+      status.textContent = `Could not update the file automatically: ${err.message} — use "Copy JS Snippet" and replace the entry by hand instead.`;
+    }
+  }
+
   async function copySnippet(builderFn, state, status, destinationHint) {
     let obj;
     try { obj = builderFn(state); } catch (err) { status.textContent = err.message; return; }
@@ -509,16 +684,84 @@ const ContentBuilder = (() => {
     }
   }
 
+  // ---------- Edit pickers ----------
+
+  /** A "pick an existing X, then edit it" wrapper: re-renders the given form builder whenever the picker changes. */
+  function buildEditRaceTab() {
+    const wrapper = el('div', {});
+    const formArea = el('div', {});
+    let selectedId = RACES[0] ? RACES[0].id : null;
+
+    function renderForm() {
+      formArea.innerHTML = '';
+      const race = RACES.find(r => r.id === selectedId);
+      if (race) formArea.appendChild(buildRaceForm(race));
+    }
+
+    const select = el('select', {
+      onchange: e => { selectedId = e.target.value; renderForm(); }
+    }, RACES.map(r => el('option', { value: r.id, selected: r.id === selectedId }, r.name)));
+
+    wrapper.appendChild(fieldWrap('Choose a race to edit', select));
+    wrapper.appendChild(formArea);
+    renderForm();
+    return wrapper;
+  }
+
+  function buildEditSubclassTab() {
+    const wrapper = el('div', {});
+    const subclassPickerArea = el('div', {});
+    const formArea = el('div', {});
+    let selectedClassId = CLASSES[0].id;
+    let selectedSubclassId = (CLASSES[0].subclasses || [])[0] ? CLASSES[0].subclasses[0].id : null;
+
+    function renderForm() {
+      formArea.innerHTML = '';
+      const cls = CLASSES.find(c => c.id === selectedClassId);
+      const subclass = (cls.subclasses || []).find(s => s.id === selectedSubclassId);
+      if (subclass) formArea.appendChild(buildSubclassForm(subclass, selectedClassId));
+      else formArea.appendChild(el('p', { class: 'hint' }, `${cls.name} has no subclasses yet — add one from the "Add Subclass" tab first.`));
+    }
+
+    function renderSubclassPicker() {
+      subclassPickerArea.innerHTML = '';
+      const cls = CLASSES.find(c => c.id === selectedClassId);
+      const subclasses = cls.subclasses || [];
+      if (!subclasses.some(s => s.id === selectedSubclassId)) selectedSubclassId = subclasses[0] ? subclasses[0].id : null;
+      const subclassSelect = el('select', {
+        onchange: e => { selectedSubclassId = e.target.value; renderForm(); }
+      }, subclasses.map(s => el('option', { value: s.id, selected: s.id === selectedSubclassId }, s.name)));
+      subclassPickerArea.appendChild(fieldWrap(`${cls.subclassFeatureName || 'Subclass'}`, subclassSelect));
+      renderForm();
+    }
+
+    const classSelect = el('select', {
+      onchange: e => { selectedClassId = e.target.value; renderSubclassPicker(); }
+    }, CLASSES.map(c => el('option', { value: c.id, selected: c.id === selectedClassId }, c.name)));
+
+    wrapper.appendChild(fieldWrap('Class', classSelect));
+    wrapper.appendChild(subclassPickerArea);
+    wrapper.appendChild(formArea);
+    renderSubclassPicker();
+    return wrapper;
+  }
+
   // ---------- top-level render ----------
 
   function render(root) {
     let active = 'race';
     const tabs = el('div', { class: 'method-tabs' });
     const panel = el('div', { class: 'builder-panel' });
+    const TABS = [
+      ['race', 'Add Race', () => buildRaceForm()],
+      ['edit-race', 'Edit Race', buildEditRaceTab],
+      ['subclass', 'Add Subclass', () => buildSubclassForm()],
+      ['edit-subclass', 'Edit Subclass', buildEditSubclassTab]
+    ];
 
     function renderTabs() {
       tabs.innerHTML = '';
-      [['race', 'Add Race'], ['subclass', 'Add Subclass']].forEach(([key, label]) => {
+      TABS.forEach(([key, label]) => {
         tabs.appendChild(el('div', {
           class: 'method-tab' + (active === key ? ' method-tab--active' : ''),
           onclick: () => { active = key; renderTabs(); renderPanel(); }
@@ -527,7 +770,8 @@ const ContentBuilder = (() => {
     }
     function renderPanel() {
       panel.innerHTML = '';
-      panel.appendChild(active === 'race' ? buildRaceForm() : buildSubclassForm());
+      const tab = TABS.find(([key]) => key === active);
+      panel.appendChild(tab[2]());
     }
     renderTabs();
     renderPanel();
@@ -535,8 +779,10 @@ const ContentBuilder = (() => {
     root.innerHTML = '';
     root.appendChild(el('div', { class: 'view-header' }, [el('h1', {}, 'Content Builder')]));
     root.appendChild(el('p', { class: 'hint' },
-      'Fill in the form and save — this writes the new entry directly into js/data/races.js or js/data/classes.js ' +
-      '(your browser will ask you to pick that file), or downloads an updated copy to replace it manually if your browser can’t write files directly.'));
+      'Fill in the form and save — this writes straight into js/data/races.js or js/data/classes.js ' +
+      '(your browser will ask you to pick that file), or downloads an updated copy to replace it manually if your browser can’t write files directly. ' +
+      'Use "Edit Race" or "Edit Subclass" to change something already there — e.g. new Otherworldly Patrons for the Warlock, Divine Domains for the ' +
+      'Cleric, or Sacred Oaths for the Paladin all start from "Add Subclass"; use the Edit tab afterward to tweak one you already added.'));
     root.appendChild(tabs);
     root.appendChild(panel);
   }
