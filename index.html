@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D&amp;D Character Sheet</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-header__inner">
+      <a href="#" class="app-title" id="brand-link">
+        <span class="app-title__icon" aria-hidden="true">&#9876;&#65039;</span>
+        <span>Adventurer's Ledger</span>
+      </a>
+      <nav class="app-nav">
+        <button id="btn-theme" class="btn btn--ghost">🎨 Theme</button>
+        <button id="nav-home" class="btn btn--ghost">My Characters</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="app-root" class="app-root">
+
+    <!-- HOME: character list -->
+    <section id="view-home" class="view">
+      <div class="view-header">
+        <h1>Your Characters</h1>
+        <div class="view-header__actions">
+          <label class="btn btn--ghost file-btn">
+            Import
+            <input type="file" id="import-file-input" accept="application/json" hidden>
+          </label>
+          <button id="btn-new-character" class="btn btn--primary">+ New Character</button>
+        </div>
+      </div>
+      <p class="hint">Everything is saved in this browser only (localStorage) — nothing leaves your device. Use Export on a character to back it up or move it to another browser.</p>
+      <div id="character-list" class="character-list"></div>
+      <div id="empty-state" class="empty-state" hidden>
+        <p>No characters yet. Create your first hero to get started!</p>
+      </div>
+    </section>
+
+    <!-- WIZARD: guided creation -->
+    <section id="view-wizard" class="view" hidden>
+      <div class="wizard" id="wizard-root"></div>
+    </section>
+
+    <!-- SHEET: full character sheet -->
+    <section id="view-sheet" class="view" hidden>
+      <div id="sheet-root"></div>
+    </section>
+
+  </main>
+
+  <div id="toast" class="toast" hidden></div>
+  <div id="modal-overlay" class="modal-overlay" hidden>
+    <div id="modal-content" class="modal-content"></div>
+  </div>
+
+  <!-- Data layer -->
+  <script src="js/data/rules.js"></script>
+  <script src="js/data/races.js"></script>
+  <script src="js/data/classes.js"></script>
+  <script src="js/data/backgrounds.js"></script>
+
+  <!-- Core logic -->
+  <script src="js/storage.js"></script>
+  <script src="js/model.js"></script>
+  <script src="js/ui-helpers.js"></script>
+  <script src="js/theme.js"></script>
+
+  <!-- Views -->
+  <script src="js/wizard.js"></script>
+  <script src="js/sheet.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
