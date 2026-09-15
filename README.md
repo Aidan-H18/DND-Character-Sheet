@@ -42,6 +42,9 @@ option.
   choice or an Ability Score Improvement.
 - **Multiple characters**, with export/import to JSON (for backups or moving
   between browsers) and quick duplication.
+- **Content Builder**: an in-app form (under "🛠 Content Builder" in the
+  header) for adding new races or subclasses without hand-editing the data
+  files — see "Adding content" below.
 
 ## Project structure
 
@@ -57,6 +60,7 @@ js/model.js             Character creation + all derived stats + leveling logic
 js/ui-helpers.js        Small DOM helpers, toasts, modal dialog
 js/wizard.js            The step-by-step creation flow
 js/sheet.js             The character sheet view + level-up flow
+js/content-builder.js   Form-based UI for adding races/subclasses to the data files
 js/app.js               Routing between home/wizard/sheet, character list actions
 ```
 
@@ -70,11 +74,23 @@ low as possible.
 The game data is deliberately kept separate from the logic that uses it, so
 growing the game's content doesn't require touching the UI code.
 
-**Add a race** — push an object onto the `RACES` array in
+**Using the Content Builder (recommended)** — click "🛠 Content Builder" in
+the header and fill in the form for a race or a subclass. "Save" writes the
+new entry straight into `js/data/races.js` / `js/data/classes.js` (your
+browser will prompt you to pick the file — this uses the File System Access
+API, supported in Chromium-based browsers like Chrome/Edge). In browsers
+without that API (Firefox, Safari), it instead downloads an updated copy of
+the file for you to replace the original with. Either way, there's also a
+"Copy JS Snippet" button if you'd rather paste the generated object in by
+hand. The tool covers the common fields (ability bonuses, traits, subraces,
+subclass features); anything more exotic (like Half-Elf's `abilityChoiceBonus`)
+still needs a manual edit afterward.
+
+**Add a race by hand** — push an object onto the `RACES` array in
 `js/data/races.js`. Give it `abilityBonuses`, `speed`, `size`, and a
 `traits` array. Add a `subraces` array if it has subraces.
 
-**Add a class or subclass** — push onto `CLASSES` in `js/data/classes.js`.
+**Add a class or subclass by hand** — push onto `CLASSES` in `js/data/classes.js`.
 Each class needs `hitDie`, `savingThrows`, `skillChoices`, and a `features`
 array of `{ level, name, description }`. To add another subclass option,
 push an object with the same `{ level, name, description }` shape onto that

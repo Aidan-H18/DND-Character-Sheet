@@ -15,6 +15,7 @@
       </a>
       <nav class="app-nav">
         <button id="btn-theme" class="btn btn--ghost">🎨 Theme</button>
+        <button id="nav-content-builder" class="btn btn--ghost">🛠 Content Builder</button>
         <button id="nav-home" class="btn btn--ghost">My Characters</button>
       </nav>
     </div>
@@ -51,6 +52,11 @@
       <div id="sheet-root"></div>
     </section>
 
+    <!-- CONTENT BUILDER: add races/subclasses via a form -->
+    <section id="view-content-builder" class="view" hidden>
+      <div id="content-builder-root"></div>
+    </section>
+
   </main>
 
   <div id="toast" class="toast" hidden></div>
@@ -73,6 +79,7 @@
   <!-- Views -->
   <script src="js/wizard.js"></script>
   <script src="js/sheet.js"></script>
+  <script src="js/content-builder.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
